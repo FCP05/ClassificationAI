@@ -1,3 +1,4 @@
+#---------------------------------------------------------------------
 #Project: Image Classification AI
 #Class: CS4398 Section252-Group #1
 #Member Names:
@@ -5,61 +6,82 @@
 #   PalaciosTinoco, Flavio C.
 #   Mbwavi, Nickson L.
 #   Polanco, Samuel S.
-#File: AI MODEL STRUCTURE
-#      ->Builds model structure.
+#About File: AI MODEL STRUCTURE DEFINITION
+#      ->Defines model structure. 
+#      ->"Squeeze Net()" is called and built for training.
+#      ->"Squeeze Net()" is called and built for validation.
+#      ->Model always blank unless training progress is fetched
+#        from "modelSaveState.h5". 
+#---------------------------------------------------------------------
+from keras.models import Model
+from keras.layers import Add, Activation, Concatenate, Conv2D 
+from keras.layers import Flatten, Input, GlobalAveragePooling2D, MaxPooling2D
+import keras.backend as K
 
+    
+def SqueezeNet(inputShape, numOfLabels):
+    """
+    Basic SqueezeNet Structure
+    (No Bypassing, Compression of "1.0", and No Dropout rate)
+    
+    Arguments:
+        inputShape: shape of the input images e.g. (224,224,3).
+        numOfLabels: number of classes.
+    Returns:
+        Model: Keras Model instance stored as "Model".
+    """
+    input_img = Input(shape=inputShape)
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+    layer_x = Conv2D(96, (7,7), activation='relu', strides=(2,2), padding='same', name='conv1')(input_img)
 
-#Define the photo input shape(224pi,224pi,RGB).
-input_shape = (224, 224, 3)
+    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool1')(layer_x)
+    
+    layer_x = createFireModule(layer_x, 16, name='fire2')
+    layer_x = createFireModule(layer_x, 16, name='fire3')
+    layer_x = createFireModule(layer_x, 32, name='fire4')
+    
+    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool4')(layer_x)
+    
+    layer_x = createFireModule(layer_x, 32, name='fire5')
+    layer_x = createFireModule(layer_x, 48, name='fire6')
+    layer_x = createFireModule(layer_x, 48, name='fire7')
+    layer_x = createFireModule(layer_x, 64, name='fire8')
+    
+    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool8')(layer_x)
+    
+    layer_x = createFireModule(layer_x, 64, name='fire9')
+        
+    layer_x = output(layer_x, numOfLabels)
+    return Model(inputs=input_img, outputs=layer_x)
 
-#Initialize the model.
-model = Sequential()
+def createFireModule(layer_x, numOfSqueezeFilter, name):
+    """
+    Creates a Fire Module
+    
+    Arguments:
+        layer_x: Input
+        numSqueezeFilter: Number of filters for squeeze. The filtersize for expand is 4 times of squeeze
+        name: Name of current layer like "fire3","maxPool1", or "fire9_squeeze"
+    Returns:
+        layer_x: returns a fire module
+    """
+    
+    numOfExpandFilter = 4 * numOfSqueezeFilter
+    squeeze    = Conv2D(numOfSqueezeFilter,(1,1), activation='relu', padding='same', name='%s_squeeze'%name)(layer_x)
+    expand_1x1 = Conv2D(numOfExpandFilter, (1,1), activation='relu', padding='same', name='%s_expand_1x1'%name)(squeeze)
+    expand_3x3 = Conv2D(numOfExpandFilter, (3,3), activation='relu', padding='same', name='%s_expand_3x3'%name)(squeeze)
+    
+    alayer_x = getALayer_X()
+    layer_x_ret = Concatenate(axis=alayer_x, name='%s_Concatenate'%name)([expand_1x1, expand_3x3])
+    return layer_x_ret
 
-#CONVOLUTION LAYERS are built with the following parameters:
-#(image filters amount in use, kernel dimensions, padding to be used, activation function in use).
-#POOLING LAYERS are built with the following parmeters:
-#(image filter dimensions, stride of the filter).
-
-#Add the first set of convolutional layers.
-model.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu', input_shape=input_shape))
-model.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
-
-#Add the second set of convolutional layers.
-model.add(Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
-
-#Add the third set of convolutional layers.
-model.add(Conv2D(256, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(256, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(256, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
-
-#Add the fourth set of convolutional layers.
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
-
-#Add the fifth set of convolutional layers.
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(Conv2D(512, kernel_size=(3, 3), padding='same', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
-
-#FULLY CONNECTERD LAYERS process a "1-D" feature map. These layers are 
-#populated with a number of desired nodes. The final layer designates
-#the number of possible outputs available. 
-
-#Add the fully connected layers.
-model.add(Flatten())
-model.add(Dense(4096, activation='relu'))
-model.add(Dense(4096, activation='relu'))
-model.add(Dense(8, activation='softmax'))
-
-#Compile the model.
-model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+def getALayer_X():
+    alayer_x = -1 if K.image_data_format() == 'channels_last' else 1
+    return alayer_x
+    
+   
+def output(layer_x, numOfLabels):
+    layer_x = Conv2D(numOfLabels, (1,1), strides=(1,1), padding='valid', name='conv10')(layer_x)
+    layer_x = GlobalAveragePooling2D(name='avgPool10')(layer_x)
+    layer_x = Activation("softmax", name='softmax')(layer_x)
+    return layer_x
