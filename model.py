@@ -1,87 +1,49 @@
-#---------------------------------------------------------------------
-#Project: Image Classification AI
-#Class: CS4398 Section252-Group #1
-#Member Names:
-#   Carmona, Juan J.
-#   PalaciosTinoco, Flavio C.
-#   Mbwavi, Nickson L.
-#   Polanco, Samuel S.
-#About File: AI MODEL STRUCTURE DEFINITION
-#      ->Defines model structure. 
-#      ->"Squeeze Net()" is called and built for training.
-#      ->"Squeeze Net()" is called and built for validation.
-#      ->Model always blank unless training progress is fetched
-#        from "modelSaveState.h5". 
-#---------------------------------------------------------------------
-from keras.models import Model
-from keras.layers import Add, Activation, Concatenate, Conv2D 
-from keras.layers import Flatten, Input, GlobalAveragePooling2D, MaxPooling2D
-import keras.backend as K
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
 
-    
-def SqueezeNet(inputShape, numOfLabels):
-    """
-    Basic SqueezeNet Structure
-    (No Bypassing, Compression of "1.0", and No Dropout rate)
-    
-    Arguments:
-        inputShape: shape of the input images e.g. (224,224,3).
-        numOfLabels: number of classes.
-    Returns:
-        Model: Keras Model instance stored as "Model".
-    """
-    input_img = Input(shape=inputShape)
+###PalaciosTinoco, Flavio###
+#Define Model Structure Function:
+#----------------------------------------------------
+#Defines the VGG-16 Convolutional Neural Network(CNN). Takes two parameters
+#dealing with image shape and number of image labels. The image shape is 
+#expressed as "pixel value x pixel value x color channels" and the labels are
+#expressed as "4" classes.
 
-    layer_x = Conv2D(96, (7,7), activation='relu', strides=(2,2), padding='same', name='conv1')(input_img)
+#Uses the softmax activation function and the categorical_crossentropy loss
+#function to enforce dealing with 4 different image labels.
+def make_model(input_shape, num_classes):
+    inputs = keras.Input(shape=input_shape)
 
-    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool1')(layer_x)
-    
-    layer_x = createFireModule(layer_x, 16, name='fire2')
-    layer_x = createFireModule(layer_x, 16, name='fire3')
-    layer_x = createFireModule(layer_x, 32, name='fire4')
-    
-    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool4')(layer_x)
-    
-    layer_x = createFireModule(layer_x, 32, name='fire5')
-    layer_x = createFireModule(layer_x, 48, name='fire6')
-    layer_x = createFireModule(layer_x, 48, name='fire7')
-    layer_x = createFireModule(layer_x, 64, name='fire8')
-    
-    layer_x = MaxPooling2D(pool_size=(3,3), strides=(2,2), name='maxPool8')(layer_x)
-    
-    layer_x = createFireModule(layer_x, 64, name='fire9')
-        
-    layer_x = output(layer_x, numOfLabels)
-    return Model(inputs=input_img, outputs=layer_x)
+    #Convolution Blocks
+    conv1of1 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+    conv2of1 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(conv1of1)
+    pool1 = layers.MaxPooling2D((2, 2), strides=(2, 2))(conv2of1)
 
-def createFireModule(layer_x, numOfSqueezeFilter, name):
-    """
-    Creates a Fire Module
-    
-    Arguments:
-        layer_x: Input
-        numSqueezeFilter: Number of filters for squeeze. The filtersize for expand is 4 times of squeeze
-        name: Name of current layer like "fire3","maxPool1", or "fire9_squeeze"
-    Returns:
-        layer_x: returns a fire module
-    """
-    
-    numOfExpandFilter = 4 * numOfSqueezeFilter
-    squeeze    = Conv2D(numOfSqueezeFilter,(1,1), activation='relu', padding='same', name='%s_squeeze'%name)(layer_x)
-    expand_1x1 = Conv2D(numOfExpandFilter, (1,1), activation='relu', padding='same', name='%s_expand_1x1'%name)(squeeze)
-    expand_3x3 = Conv2D(numOfExpandFilter, (3,3), activation='relu', padding='same', name='%s_expand_3x3'%name)(squeeze)
-    
-    alayer_x = getALayer_X()
-    layer_x_ret = Concatenate(axis=alayer_x, name='%s_Concatenate'%name)([expand_1x1, expand_3x3])
-    return layer_x_ret
+    conv1of2 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(pool1)
+    conv2of2 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(conv1of2)
+    pool2 = layers.MaxPooling2D((2, 2), strides=(2, 2))(conv2of2)
 
-def getALayer_X():
-    alayer_x = -1 if K.image_data_format() == 'channels_last' else 1
-    return alayer_x
-    
-   
-def output(layer_x, numOfLabels):
-    layer_x = Conv2D(numOfLabels, (1,1), strides=(1,1), padding='valid', name='conv10')(layer_x)
-    layer_x = GlobalAveragePooling2D(name='avgPool10')(layer_x)
-    layer_x = Activation("softmax", name='softmax')(layer_x)
-    return layer_x
+    conv1of3 = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(pool2)
+    conv2of3 = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(conv1of3)
+    conv3of3 = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(conv2of3)
+    pool3 = layers.MaxPooling2D((2, 2), strides=(2, 2))(conv3of3)
+
+    conv1of4 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(pool3)
+    conv2of4 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(conv1of4)
+    conv3of4 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(conv2of4)
+    pool4 = layers.MaxPooling2D((2, 2), strides=(2, 2))(conv3of4)
+
+    conv1of5 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(pool4)
+    conv2of5 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(conv1of5)
+    conv3of5 = layers.Conv2D(512, (3, 3), activation='relu', padding='same')(conv2of5)
+    pool5 = layers.MaxPooling2D((2, 2), strides=(2, 2))(conv3of5)
+
+    # Classification block
+    flatten = layers.Flatten()(pool5)
+    dense1 = layers.Dense(4096, activation='relu')(flatten)
+    dense2 = layers.Dense(4096, activation='relu')(dense1)
+    outputs = layers.Dense(num_classes, activation='softmax')(dense2)
+
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    return model
