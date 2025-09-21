@@ -1,7 +1,8 @@
 # Classification AI using a VGG-16 Convolutional Neural Network
-In short, this is a program that is shown a group of images of declared tags, then it can draw a prediction for what tag(of the ones previously introduced) a brand new image belongs in.
+This program trains itself to recognize images. After training, it can draw a prediction for what category a brand new image belongs to.
 
 ## Current Status: 
+- Not a finished working product. 
 - Preprocessing, training, and prediction functions run without crashing.
 - Upon running the prediction function for the model, the model favors one image tag/class over the other three available tags.
 - Symptoms point to an overfitted model:
